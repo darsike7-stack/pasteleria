@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pastelería Artesanal | Proyecto POO</title>
-  <script src="https://jsdelivr.net"></script>
   <style>
     :root {
       --bg: #fff9f6;
@@ -76,7 +75,7 @@
     }
     .whatsapp-btn { background: #25D366; font-size: 1rem; padding: 0.75rem 1.3rem; }
     .whatsapp-btn:hover { background: #1ebe5d; }
-    .loading { text-align: center; padding: 3rem; color: var(--muted); }
+    .loading { text-align: center; padding: 3rem; color: var(--muted); grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -103,7 +102,7 @@
   </div>
 
   <script>
-    // Clase 1: Representa cada objeto Postre
+    // Clase 1: Modelo de datos para cada Postre
     class Postre {
       constructor({ id, nombre, descripcion, precio, imagen_url }) {
         this.id = id;
@@ -135,7 +134,7 @@
       }
     }
 
-    // Clase 2: Gestiona el Carrito de Compras
+    // Clase 2: Lógica del Carrito de Compras
     class Carrito {
       constructor(telefono) {
         this.items = [];
@@ -181,34 +180,41 @@
       }
     }
 
-    // Clase 3: Controlador principal de la Tienda y conexión a Supabase
+    // Clase 3: Controlador principal conectado directamente a la API REST de Supabase
     class TiendaApp {
       constructor(url, key, telefono) {
-        this.db = supabase.createClient(url, key);
+        this.apiUrl = `${url}/rest/v1/Postres?disponible=eq.true&order=id.asc`;
+        this.apiKey = key;
         this.catalogo = [];
         this.carrito = new Carrito(telefono);
       }
 
       async iniciar() {
         const contenedor = document.getElementById('catalogo');
-        const { data, error } = await this.db
-          .from('Postres')
-          .select('*')
-          .eq('disponible', true)
-          .order('id', { ascending: true });
+        try {
+          const respuesta = await fetch(this.apiUrl, {
+            headers: {
+              'apikey': this.apiKey,
+              'Authorization': `Bearer ${this.apiKey}`
+            }
+          });
 
-        if (error) {
-          contenedor.innerHTML = `<p class="loading">Error al cargar: ${error.message}</p>`;
-          return;
+          if (!respuesta.ok) {
+            throw new Error(`Error HTTP ${respuesta.status} al consultar Supabase`);
+          }
+
+          const data = await respuesta.json();
+
+          if (!data || data.length === 0) {
+            contenedor.innerHTML = `<p class="loading">Aún no hay postres disponibles en la tabla.</p>`;
+            return;
+          }
+
+          this.catalogo = data.map(fila => new Postre(fila));
+          contenedor.innerHTML = this.catalogo.map(p => p.renderizarTarjeta()).join('');
+        } catch (error) {
+          contenedor.innerHTML = `<p class="loading" style="color: #b85268;">No se pudo conectar: ${error.message}</p>`;
         }
-
-        if (!data || data.length === 0) {
-          contenedor.innerHTML = `<p class="loading">Aún no hay postres disponibles.</p>`;
-          return;
-        }
-
-        this.catalogo = data.map(fila => new Postre(fila));
-        contenedor.innerHTML = this.catalogo.map(p => p.renderizarTarjeta()).join('');
       }
 
       agregarAlCarrito(id) {
@@ -225,6 +231,11 @@
       'sb_publishable_pSxmLhDhSDtjPPqZSR-ovg_X1L3Tbed',
       '51900000000'
     );
+    app.iniciar();
+  </script>
+</body>
+</html>
+
     app.iniciar();
   </script>
 </body>
