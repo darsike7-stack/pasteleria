@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pastelería Artesanal | Proyecto POO</title>
+  <script src="https://jsdelivr.net"></script>
+  <style>
+    :root {
+      --bg: #fff9f6;
+      --card: #ffffff;
+      --primary: #d96b83;
+      --primary-dark: #b85268;
+      --text: #3d2c2e;
+      --muted: #7a686a;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding-bottom: 90px; }
+    header {
+      background: linear-gradient(135deg, #fce4ec, #fff0e6);
+      text-align: center;
+      padding: 2.5rem 1rem;
+      border-bottom: 1px solid #f3dce2;
+    }
+    header h1 { margin: 0; font-size: 2rem; color: var(--primary-dark); }
+    header p { margin: 0.5rem 0 0; color: var(--muted); }
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.5rem;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(61, 44, 46, 0.06);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); }
+    .card img {
+      width: 100%;
+      height: 190px;
+      object-fit: cover;
+      background: #f8e8ec;
+    }
+    .card-body { padding: 1.2rem; flex: 1; display: flex; flex-direction: column; }
+    .card-title { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.4rem; }
+    .card-desc { font-size: 0.9rem; color: var(--muted); flex: 1; margin: 0 0 1rem; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; }
+    .price { font-size: 1.2rem; font-weight: 700; color: var(--primary-dark); }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--primary-dark); }
+    .cart-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1000px;
+      margin: 0 auto;
+      border-radius: 16px 16px 0 0;
+    }
+    .whatsapp-btn { background: #25D366; font-size: 1rem; padding: 0.75rem 1.3rem; }
+    .whatsapp-btn:hover { background: #1ebe5d; }
+    .loading { text-align: center; padding: 3rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍰 Dulce Encanto</h1>
+    <p>Postres artesanales • Proyecto POO con Supabase</p>
+  </header>
+
+  <main class="container">
+    <div id="catalogo" class="grid">
+      <div class="loading">Cargando postres deliciosos...</div>
+    </div>
+  </main>
+
+  <div class="cart-bar" id="carrito-barra" style="display: none;">
+    <div>
+      <strong id="carrito-cantidad">0 postres</strong> • Total: <strong id="carrito-total">S/ 0.00</strong>
+    </div>
+    <div>
+      <button style="background:#888; margin-right:8px;" onclick="app.carrito.vaciar()">Vaciar</button>
+      <button class="whatsapp-btn" onclick="app.carrito.enviarPedido()">Pedir por WhatsApp</button>
+    </div>
+  </div>
+
+  <script>
+    // Clase 1: Representa cada objeto Postre
+    class Postre {
+      constructor({ id, nombre, descripcion, precio, imagen_url }) {
+        this.id = id;
+        this.nombre = nombre;
+        this.descripcion = descripcion || 'Sin descripción';
+        this.precio = Number(precio);
+        this.imagenUrl = imagen_url || 'https://unsplash.com';
+      }
+
+      formatearPrecio() {
+        return `S/ ${this.precio.toFixed(2)}`;
+      }
+
+      renderizarTarjeta() {
+        const fotoDefault = 'https://unsplash.com';
+        return `
+          <div class="card">
+            <img src="${this.imagenUrl}" alt="${this.nombre}" onerror="this.src='${fotoDefault}'">
+            <div class="card-body">
+              <h3 class="card-title">${this.nombre}</h3>
+              <p class="card-desc">${this.descripcion}</p>
+              <div class="card-footer">
+                <span class="price">${this.formatearPrecio()}</span>
+                <button onclick="app.agregarAlCarrito(${this.id})">+ Agregar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Clase 2: Gestiona el Carrito de Compras
+    class Carrito {
+      constructor(telefono) {
+        this.items = [];
+        this.telefono = telefono;
+      }
+
+      agregar(postre) {
+        this.items.push(postre);
+        this.actualizarVista();
+      }
+
+      vaciar() {
+        this.items = [];
+        this.actualizarVista();
+      }
+
+      calcularTotal() {
+        return this.items.reduce((suma, item) => suma + item.precio, 0);
+      }
+
+      actualizarVista() {
+        const barra = document.getElementById('carrito-barra');
+        if (this.items.length === 0) {
+          barra.style.display = 'none';
+          return;
+        }
+        barra.style.display = 'flex';
+        document.getElementById('carrito-cantidad').textContent = `${this.items.length} postre(s)`;
+        document.getElementById('carrito-total').textContent = `S/ ${this.calcularTotal().toFixed(2)}`;
+      }
+
+      enviarPedido() {
+        const resumen = {};
+        this.items.forEach(item => {
+          resumen[item.nombre] = (resumen[item.nombre] || 0) + 1;
+        });
+        let mensaje = "¡Hola! Quisiera hacer el siguiente pedido de postres:%0A%0A";
+        for (const [nombre, cant] of Object.entries(resumen)) {
+          mensaje += `• ${cant}x ${nombre}%0A`;
+        }
+        mensaje += `%0A*Total estimado: S/ ${this.calcularTotal().toFixed(2)}*`;
+        window.open(`https://wa.me{this.telefono}?text=${mensaje}`, '_blank');
+      }
+    }
+
+    // Clase 3: Controlador principal de la Tienda y conexión a Supabase
+    class TiendaApp {
+      constructor(url, key, telefono) {
+        this.db = supabase.createClient(url, key);
+        this.catalogo = [];
+        this.carrito = new Carrito(telefono);
+      }
+
+      async iniciar() {
+        const contenedor = document.getElementById('catalogo');
+        const { data, error } = await this.db
+          .from('Postres')
+          .select('*')
+          .eq('disponible', true)
+          .order('id', { ascending: true });
+
+        if (error) {
+          contenedor.innerHTML = `<p class="loading">Error al cargar: ${error.message}</p>`;
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          contenedor.innerHTML = `<p class="loading">Aún no hay postres disponibles.</p>`;
+          return;
+        }
+
+        this.catalogo = data.map(fila => new Postre(fila));
+        contenedor.innerHTML = this.catalogo.map(p => p.renderizarTarjeta()).join('');
+      }
+
+      agregarAlCarrito(id) {
+        const postreEncontrado = this.catalogo.find(p => p.id === id);
+        if (postreEncontrado) {
+          this.carrito.agregar(postreEncontrado);
+        }
+      }
+    }
+
+    // Instancia principal de la aplicación
+    const app = new TiendaApp(
+      'https://supabase.co',
+      'sb_publishable_pSxmLhDhSDtjPPqZSR-ovg_X1L3Tbed',
+      '51900000000'
+    );
+    app.iniciar();
+  </script>
+</body>
+</html>
